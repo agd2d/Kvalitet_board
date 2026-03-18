@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inspektions-Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a202c; min-height: 100vh; }
+
+  header {
+    background: linear-gradient(135deg, #1a56db, #0e3fa8);
+    color: white; padding: 16px 28px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { font-size: 1.15rem; font-weight: 700; }
+  header small { opacity: 0.75; font-size: 0.75rem; display: block; margin-top: 2px; }
+
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .btn {
+    background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+    color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem;
+  }
+  .btn:hover { background: rgba(255,255,255,0.3); }
+  .btn.active { background: rgba(255,255,255,0.9); color: #1a56db; font-weight: 600; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 0; background: white; border-bottom: 2px solid #e5e7eb; padding: 0 28px; }
+  .tab { padding: 12px 20px; cursor: pointer; font-size: 0.875rem; color: #6b7280; border-bottom: 3px solid transparent; margin-bottom: -2px; font-weight: 500; }
+  .tab.active { color: #1a56db; border-bottom-color: #1a56db; font-weight: 600; }
+
+  .page { display: none; padding: 20px 28px 40px; }
+  .page.active { display: block; }
+
+  /* STAT CARDS */
+  .stats-bar { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+  .stat-card {
+    background: white; border-radius: 10px; padding: 14px 20px;
+    flex: 1; min-width: 130px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-top: 3px solid #1a56db;
+  }
+  .stat-card.green { border-top-color: #16a34a; }
+  .stat-card.red { border-top-color: #dc2626; }
+  .stat-card.orange { border-top-color: #d97706; }
+  .stat-card.purple { border-top-color: #7c3aed; }
+  .stat-label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
+  .stat-value { font-size: 2rem; font-weight: 700; line-height: 1; }
+  .stat-sub { font-size: 0.72rem; color: #9ca3af; margin-top: 4px; }
+
+  /* KPI SECTIONS */
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px; }
+  .kpi-box { background: white; border-radius: 10px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); }
+  .kpi-box h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; margin-bottom: 14px; font-weight: 600; }
+
+  .rank-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid #f3f4f6;
+  }
+  .rank-item:last-child { border-bottom: none; }
+  .rank-num { font-size: 0.75rem; font-weight: 700; color: #9ca3af; width: 18px; text-align: center; flex-shrink: 0; }
+  .rank-num.gold { color: #d97706; }
+  .rank-num.silver { color: #6b7280; }
+  .rank-num.bronze { color: #b45309; }
+  .rank-name { flex: 1; font-size: 0.85rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+  .rank-count { font-size: 0.75rem; color: #6b7280; }
+  .rank-score { font-size: 0.85rem; font-weight: 700; }
+  .score-bar-wrap { height: 5px; background: #f3f4f6; border-radius: 3px; margin-top: 4px; }
+  .score-bar { height: 5px; border-radius: 3px; background: #1a56db; transition: width 0.5s; }
+  .score-bar.green { background: #16a34a; }
+  .score-bar.red { background: #dc2626; }
+  .score-bar.orange { background: #d97706; }
+
+  .trend-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 0.82rem; }
+  .trend-item:last-child { border-bottom: none; }
+
+  /* BADGE */
+  .badge { padding: 2px 8px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+  .badge.approved { background: #dcfce7; color: #16a34a; }
+  .badge.rejected { background: #fee2e2; color: #dc2626; }
+  .badge.pending { background: #fef3c7; color: #d97706; }
+
+  /* SCORE CIRCLE */
+  .score-big { text-align: center; padding: 10px 0 16px; }
+  .score-circle {
+    width: 80px; height: 80px; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    margin: 0 auto 8px;
+    font-size: 1.6rem; font-weight: 700;
+    border: 4px solid #16a34a;
+    color: #16a34a;
+  }
+  .score-circle.mid { border-color: #d97706; color: #d97706; }
+  .score-circle.low { border-color: #dc2626; color: #dc2626; }
+  .score-circle-label { font-size: 0.72rem; color: #6b7280; }
+
+  /* SUBMISSIONS LIST */
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .controls select, .controls input {
+    padding: 7px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+    font-size: 0.85rem; background: white;
+  }
+  .controls input { min-width: 220px; }
+  #last-updated { font-size: 0.7rem; color: #9ca3af; margin-bottom: 14px; }
+
+  .card { background: white; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); overflow: hidden; }
+  .card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 13px 16px; border-left: 5px solid #d1d5db; cursor: pointer; gap: 10px;
+  }
+  .card.approved .card-top { border-left-color: #16a34a; }
+  .card.rejected .card-top { border-left-color: #dc2626; }
+  .card.pending .card-top { border-left-color: #d97706; }
+  .card-top-left { flex: 1; min-width: 0; }
+  .card-name { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-sub { font-size: 0.75rem; color: #6b7280; display: flex; gap: 12px; flex-wrap: wrap; margin-top: 3px; }
+  .card-top-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .chevron { font-size: 0.75rem; color: #9ca3af; transition: transform 0.2s; }
+  .card.open .chevron { transform: rotate(180deg); }
+  .card-details { display: none; padding: 12px 16px 16px; border-top: 1px solid #f3f4f6; }
+  .card.open .card-details { display: block; }
+  .details-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .detail-item .detail-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.4px; color: #9ca3af; font-weight: 600; margin-bottom: 2px; }
+  .detail-item .detail-value { font-size: 0.8rem; color: #1a202c; word-break: break-word; }
+  .detail-item .detail-value a { color: #1a56db; font-size: 0.75rem; }
+
+  /* LOADING */
+  #loading { text-align: center; padding: 60px; color: #6b7280; }
+  .spinner { width: 32px; height: 32px; border: 3px solid #e5e7eb; border-top-color: #1a56db; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #error-msg { background: #fee2e2; color: #dc2626; padding: 14px 22px; border-radius: 8px; margin-bottom: 16px; font-size: 0.88rem; display: none; }
+  .no-results { text-align: center; color: #9ca3af; padding: 40px; font-size: 0.88rem; }
+
+  .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7280; font-weight: 600; margin: 20px 0 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🔍 Inspektions-Dashboard</h1>
+    <small>Hvidbjerg Service ApS</small>
+  </div>
+  <div class="header-right">
+    <button class="btn" onclick="loadData()">↻ Opdater</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('kpi')">📊 KPI Overblik</div>
+  <div class="tab" onclick="showTab('list')">📋 Alle inspektioner</div>
+</div>
+
+<div id="loading"><div class="spinner"></div>Henter inspektioner...</div>
+<div id="error-msg"></div>
+
+<!-- KPI TAB -->
+<div id="tab-kpi" class="page active" style="display:none;">
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Inspektioner i alt</div><div class="stat-value" id="v-total">—</div></div>
+    <div class="stat-card green"><div class="stat-label">Godkendte</div><div class="stat-value" id="v-approved">—</div><div class="stat-sub" id="v-approved-pct"></div></div>
+    <div class="stat-card red"><div class="stat-label">Ikke godkendte</div><div class="stat-value" id="v-rejected">—</div><div class="stat-sub" id="v-rejected-pct"></div></div>
+    <div class="stat-card orange"><div class="stat-label">Afventer</div><div class="stat-value" id="v-pending">—</div></div>
+    <div class="stat-card purple"><div class="stat-label">Gns. karakter</div><div class="stat-value" id="v-avgscore">—</div><div class="stat-sub">ud af 5</div></div>
+  </div>
+
+  <div class="kpi-row">
+    <!-- Overall score -->
+    <div class="kpi-box">
+      <h3>Samlet kvalitetsscore</h3>
+      <div class="score-big">
+        <div class="score-circle" id="overall-circle">—</div>
+        <div class="score-circle-label" id="overall-label">Gennemsnit af alle karakterer</div>
+      </div>
+      <div id="score-dist"></div>
+    </div>
+
+    <!-- Top inspektører -->
+    <div class="kpi-box">
+      <h3>🏆 Top 3 inspektører</h3>
+      <div id="top-inspectors"></div>
+      <div style="margin-top:14px; border-top: 1px solid #f3f4f6; padding-top:14px;">
+        <h3 style="margin-bottom:10px;">⚠️ Bund 3 inspektører</h3>
+        <div id="bot-inspectors"></div>
+      </div>
+    </div>
+
+    <!-- Top kunder -->
+    <div class="kpi-box">
+      <h3>🏆 Top 3 kunder (højest score)</h3>
+      <div id="top-customers"></div>
+      <div style="margin-top:14px; border-top: 1px solid #f3f4f6; padding-top:14px;">
+        <h3 style="margin-bottom:10px;">⚠️ Bund 3 kunder (lavest score)</h3>
+        <div id="bot-customers"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <!-- Inspektioner pr. uge -->
+    <div class="kpi-box">
+      <h3>📅 Inspektioner pr. uge (seneste 8 uger)</h3>
+      <div id="weekly-chart"></div>
+    </div>
+
+    <!-- Besøgstype fordeling -->
+    <div class="kpi-box">
+      <h3>📋 Seneste 5 inspektioner</h3>
+      <div id="recent-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LIST TAB -->
+<div id="tab-list" class="page" style="display:none;">
+  <div class="controls">
+    <select id="filter-status" onchange="renderList()">
+      <option value="all">Alle statuser</option>
+      <option value="approved">Godkendt</option>
+      <option value="rejected">Ikke godkendt</option>
+      <option value="pending">Afventer</option>
+    </select>
+    <input type="text" id="search-box" placeholder="Søg inspektør, kunde..." oninput="renderList()">
+  </div>
+  <div id="last-updated"></div>
+  <div id="submissions-container"></div>
+</div>
+
+<script>
+const API_KEY = '35087a65703600fd703452b66b2dee6b';
+const FORM_ID = '260493821578365';
+let allSubmissions = [];
+
+// ── HELPERS ──────────────────────────────────────────────
+function val(answer) {
+  if (!answer) return '';
+  const a = answer.answer;
+  if (!a) return '';
+  if (typeof a === 'string') return a.trim();
+  if (typeof a === 'number') return String(a);
+  if (Array.isArray(a)) return a.filter(Boolean).join(', ');
+  if (typeof a === 'object') return Object.values(a).filter(v => v && typeof v === 'string').join(' ').trim();
+  return '';
+}
+
+function findByKeywords(answers, keywords) {
+  for (const ans of Object.values(answers)) {
+    const label = (ans.text || ans.name || '').toLowerCase();
+    if (keywords.some(k => label.includes(k))) {
+      const v = val(ans); if (v) return v;
+    }
+  }
+  return '';
+}
+
+function extractScores(answers) {
+  // Find all numeric fields (ratings/characters 1-5)
+  const scores = [];
+  for (const ans of Object.values(answers)) {
+    const v = val(ans);
+    const n = parseFloat(v);
+    if (!isNaN(n) && n >= 1 && n <= 5 && v === String(Math.round(n))) scores.push(n);
+  }
+  return scores;
+}
+
+function avgScore(scores) {
+  if (!scores.length) return null;
+  return scores.reduce((a,b) => a+b, 0) / scores.length;
+}
+
+function getStatus(answers) {
+  for (const ans of Object.values(answers)) {
+    const label = (ans.text || ans.name || '').toLowerCase();
+    const v = val(ans).toLowerCase();
+    if (label.includes('status') || label.includes('godkend') || label.includes('resultat')) {
+      if (v.includes('ikke godkendt') || v.includes('afvist')) return 'rejected';
+      if (v.includes('godkendt') || v === 'ok') return 'approved';
+    }
+    if (v === 'ikke godkendt') return 'rejected';
+    if (v === 'godkendt') return 'approved';
+  }
+  return 'pending';
+}
+
+function statusLabel(s) {
+  return s === 'approved' ? 'Godkendt' : s === 'rejected' ? 'Ikke godkendt' : 'Afventer';
+}
+
+function scoreColor(s) {
+  if (s >= 4) return 'green';
+  if (s >= 3) return 'orange';
+  return 'red';
+}
+
+function isUrl(str) {
+  return typeof str === 'string' && (str.startsWith('http://') || str.startsWith('https://'));
+}
+
+// ── LOAD DATA ────────────────────────────────────────────
+async function loadData() {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('tab-kpi').style.display = 'none';
+  document.getElementById('tab-list').style.display = 'none';
+  document.getElementById('error-msg').style.display = 'none';
+  try {
+    const url = `https://eu-api.jotform.com/form/${FORM_ID}/submissions?apiKey=${API_KEY}&limit=100&orderby=created_at,DESC`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.responseCode !== 200) throw new Error(data.message || 'API fejl');
+    allSubmissions = (data.content || []).filter(s => s.status !== 'DELETED');
+    document.getElementById('loading').style.display = 'none';
+    showTab(document.querySelector('.tab.active')?.textContent.includes('KPI') ? 'kpi' : 'list');
+    buildKPI();
+    renderList();
+    const now = new Date();
+    document.getElementById('last-updated').textContent =
+      `Sidst opdateret: ${now.toLocaleDateString('da-DK')} kl. ${now.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'})}`;
+  } catch(err) {
+    document.getElementById('loading').style.display = 'none';
+    const e = document.getElementById('error-msg');
+    e.style.display = 'block';
+    e.textContent = 'Kunne ikke hente data: ' + err.message;
+  }
+}
+
+// ── KPI ──────────────────────────────────────────────────
+function buildKPI() {
+  const subs = allSubmissions;
+  let approved=0, rejected=0, pending=0;
+  const inspectorMap = {}, customerMap = {};
+  const allScores = [];
+  const weekCounts = {};
+
+  subs.forEach(s => {
+    const answers = s.answers || {};
+    const status = getStatus(answers);
+    if (status==='approved') approved++;
+    else if (status==='rejected') rejected++;
+    else pending++;
+
+    const scores = extractScores(answers);
+    const avg = avgScore(scores);
+    allScores.push(...scores);
+
+    const inspector = findByKeywords(answers, ['udført af','inspektør','inspector','medarbejder']) || 'Ukendt';
+    const customer  = findByKeywords(answers, ['kunde','kundens navn','location','lokation','sted']) || 'Ukendt';
+
+    if (!inspectorMap[inspector]) inspectorMap[inspector] = {count:0, scores:[]};
+    inspectorMap[inspector].count++;
+    if (avg !== null) inspectorMap[inspector].scores.push(avg);
+
+    if (!customerMap[customer]) customerMap[customer] = {count:0, scores:[]};
+    customerMap[customer].count++;
+    if (avg !== null) customerMap[customer].scores.push(avg);
+
+    // Week bucket
+    const d = new Date(isNaN(s.created_at) ? s.created_at : s.created_at * 1000);
+    const week = getWeekKey(d);
+    weekCounts[week] = (weekCounts[week]||0) + 1;
+  });
+
+  const total = subs.length;
+  const globalAvg = avgScore(allScores);
+
+  // Stat bar
+  document.getElementById('v-total').textContent = total;
+  document.getElementById('v-approved').textContent = approved;
+  document.getElementById('v-approved-pct').textContent = total ? Math.round(approved/total*100)+'%' : '';
+  document.getElementById('v-rejected').textContent = rejected;
+  document.getElementById('v-rejected-pct').textContent = total ? Math.round(rejected/total*100)+'%' : '';
+  document.getElementById('v-pending').textContent = pending;
+  document.getElementById('v-avgscore').textContent = globalAvg ? globalAvg.toFixed(1) : '—';
+
+  // Overall circle
+  const circ = document.getElementById('overall-circle');
+  const lbl  = document.getElementById('overall-label');
+  if (globalAvg) {
+    const cl = scoreColor(globalAvg);
+    circ.textContent = globalAvg.toFixed(1);
+    circ.className = `score-circle ${cl}`;
+    lbl.textContent = globalAvg >= 4 ? 'God kvalitet 👍' : globalAvg >= 3 ? 'Acceptabel kvalitet' : 'Kræver opmærksomhed ⚠️';
+  } else {
+    circ.textContent = '—';
+    lbl.textContent = 'Ingen karakterer fundet';
+  }
+
+  // Score distribution
+  const dist = {1:0,2:0,3:0,4:0,5:0};
+  allScores.forEach(s => { dist[Math.round(s)]++; });
+  const maxD = Math.max(...Object.values(dist), 1);
+  document.getElementById('score-dist').innerHTML = [5,4,3,2,1].map(n => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:0.78rem;">
+      <span style="width:14px;color:#6b7280;font-weight:600;">${n}</span>
+      <div style="flex:1;background:#f3f4f6;border-radius:3px;height:8px;">
+        <div style="width:${Math.round(dist[n]/maxD*100)}%;background:${n>=4?'#16a34a':n===3?'#d97706':'#dc2626'};height:8px;border-radius:3px;"></div>
+      </div>
+      <span style="width:22px;text-align:right;color:#6b7280;">${dist[n]}</span>
+    </div>`).join('');
+
+  // Rank helpers
+  function rankHTML(map, topN, isTop) {
+    const arr = Object.entries(map)
+      .map(([name, d]) => ({ name, count: d.count, avg: avgScore(d.scores) }))
+      .filter(x => x.avg !== null)
+      .sort((a,b) => isTop ? b.avg - a.avg : a.avg - b.avg)
+      .slice(0, topN);
+    if (!arr.length) return '<div style="color:#9ca3af;font-size:0.8rem;padding:8px 0;">Ikke nok data</div>';
+    const medals = ['🥇','🥈','🥉'];
+    return arr.map((x,i) => `
+      <div class="rank-item">
+        <div class="rank-num">${isTop ? (medals[i]||i+1) : (i+1)}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="rank-name">${x.name}</div>
+          <div class="score-bar-wrap"><div class="score-bar ${scoreColor(x.avg)}" style="width:${x.avg/5*100}%"></div></div>
+        </div>
+        <div class="rank-right">
+          <div class="rank-score" style="color:${x.avg>=4?'#16a34a':x.avg>=3?'#d97706':'#dc2626'}">${x.avg.toFixed(1)}</div>
+          <div class="rank-count">${x.count} besøg</div>
+        </div>
+      </div>`).join('');
+  }
+
+  document.getElementById('top-inspectors').innerHTML = rankHTML(inspectorMap, 3, true);
+  document.getElementById('bot-inspectors').innerHTML = rankHTML(inspectorMap, 3, false);
+  document.getElementById('top-customers').innerHTML  = rankHTML(customerMap, 3, true);
+  document.getElementById('bot-customers').innerHTML  = rankHTML(customerMap, 3, false);
+
+  // Weekly chart (last 8 weeks)
+  const weeks = getLast8Weeks();
+  const maxW = Math.max(...weeks.map(w => weekCounts[w]||0), 1);
+  document.getElementById('weekly-chart').innerHTML = `
+    <div style="display:flex;align-items:flex-end;gap:6px;height:80px;margin-bottom:6px;">
+      ${weeks.map(w => {
+        const c = weekCounts[w]||0;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <div style="font-size:0.65rem;color:#6b7280;">${c||''}</div>
+          <div style="width:100%;background:#1a56db;border-radius:3px 3px 0 0;height:${Math.max(c/maxW*60,c?4:0)}px;"></div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:6px;">
+      ${weeks.map(w => `<div style="flex:1;text-align:center;font-size:0.6rem;color:#9ca3af;">${w.slice(5)}</div>`).join('')}
+    </div>`;
+
+  // Recent 5
+  document.getElementById('recent-list').innerHTML = subs.slice(0,5).map(s => {
+    const a = s.answers||{};
+    const inspector = findByKeywords(a,['udført af','inspektør','inspector','medarbejder'])||'Ukendt';
+    const customer  = findByKeywords(a,['kunde','kundens navn','lokation','sted'])||'—';
+    const status    = getStatus(a);
+    const d = new Date(isNaN(s.created_at)?s.created_at:s.created_at*1000);
+    const dateStr = d.toLocaleDateString('da-DK',{day:'2-digit',month:'2-digit'});
+    return `<div class="trend-item">
+      <div>
+        <div style="font-size:0.82rem;font-weight:500;">${inspector}</div>
+        <div style="font-size:0.72rem;color:#9ca3af;">${customer} · ${dateStr}</div>
+      </div>
+      <span class="badge ${status}">${statusLabel(status)}</span>
+    </div>`;
+  }).join('');
+}
+
+function getWeekKey(d) {
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  return `${d.getFullYear()}-U${String(week).padStart(2,'0')}`;
+}
+
+function getLast8Weeks() {
+  const weeks = [];
+  const now = new Date();
+  for (let i = 7; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i*7);
+    weeks.push(getWeekKey(d));
+  }
+  return weeks;
+}
+
+// ── LIST ─────────────────────────────────────────────────
+function renderList() {
+  const filterStatus = document.getElementById('filter-status').value;
+  const search = document.getElementById('search-box').value.toLowerCase();
+  const container = document.getElementById('submissions-container');
+  container.innerHTML = '';
+
+  const filtered = allSubmissions.filter(s => {
+    const answers = s.answers||{};
+    if (filterStatus !== 'all' && getStatus(answers) !== filterStatus) return false;
+    if (search) {
+      const blob = JSON.stringify(Object.values(answers).map(a=>val(a))).toLowerCase();
+      if (!blob.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    container.innerHTML = '<div class="no-results">Ingen inspektioner matcher dine filtre.</div>';
+    return;
+  }
+
+  filtered.forEach(s => {
+    const answers = s.answers||{};
+    const status = getStatus(answers);
+    const inspector = findByKeywords(answers,['udført af','inspektør','inspector','medarbejder']);
+    const location  = findByKeywords(answers,['kunde','kundens navn','lokation','sted']);
+    const d = new Date(isNaN(s.created_at)?s.created_at:s.created_at*1000);
+    const date = d.toLocaleString('da-DK',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const scores = extractScores(answers);
+    const avg = avgScore(scores);
+
+    const fields = Object.values(answers)
+      .map(a => ({label: a.text||a.name||'', value: val(a)}))
+      .filter(f => f.label && f.value && !f.value.includes('[object'));
+
+    const card = document.createElement('div');
+    card.className = `card ${status}`;
+    card.innerHTML = `
+      <div class="card-top" onclick="this.parentElement.classList.toggle('open')">
+        <div class="card-top-left">
+          <div class="card-name">${inspector||'(Ukendt inspektør)'}${location?' — '+location:''}</div>
+          <div class="card-sub">
+            <span>📅 ${date}</span>
+            ${avg ? `<span>⭐ ${avg.toFixed(1)}/5</span>` : ''}
+          </div>
+        </div>
+        <div class="card-top-right">
+          <span class="badge ${status}">${statusLabel(status)}</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="card-details">
+        <div class="details-grid">
+          ${fields.map(f => `
+            <div class="detail-item">
+              <div class="detail-label">${f.label}</div>
+              <div class="detail-value">${isUrl(f.value)?`<a href="${f.value}" target="_blank">📎 Se fil</a>`:f.value}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+// ── TABS ─────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&name==='kpi')||(i===1&&name==='list')));
+  document.getElementById('tab-kpi').style.display = name==='kpi' ? 'block' : 'none';
+  document.getElementById('tab-list').style.display = name==='list' ? 'block' : 'none';
+}
+
+loadData();
+</script>
+</body>
+</html>
